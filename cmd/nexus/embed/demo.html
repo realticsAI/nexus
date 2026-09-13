@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus — Code Intelligence Engine</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--card:#12121a;--border:#1e1e2e;--text:#e0e0e0;--muted:#6b7280;--accent:#6366f1;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#3b82f6;--cyan:#06b6d4;--orange:#f97316}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:12px}
+.logo h1{font-size:28px;font-weight:700;background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo .tag{font-size:12px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;font-weight:600}
+.version{color:var(--muted);font-size:14px}
+
+/* Tab bar */
+.tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{padding:10px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Stats bar */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.stat .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.stat .value{font-size:24px;font-weight:700}
+.stat .value.accent{color:var(--accent)}
+.stat .value.green{color:var(--green)}
+.stat .value.blue{color:var(--blue)}
+
+/* Section */
+.section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+.section h2{font-size:18px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.section.hidden{display:none}
+
+/* Input */
+.input-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.input-row input{flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-size:15px;outline:none;transition:border .2s}
+.input-row input:focus{border-color:var(--accent)}
+.input-row input::placeholder{color:var(--muted)}
+.input-row select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-size:14px;outline:none;cursor:pointer}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn:hover{background:#4f46e5;transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn.secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn.danger{background:var(--red)}
+.btn.danger:hover{background:#dc2626}
+
+/* Pipeline phases */
+.pipeline{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
+.phase{flex:1;min-width:90px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;transition:all .4s;position:relative;overflow:hidden}
+.phase .name{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.phase .time{font-size:10px;color:var(--muted);margin-top:4px}
+.phase.active{border-color:var(--accent);background:rgba(99,102,241,.1)}
+.phase.active .name{color:var(--accent)}
+.phase.active::after{content:'';position:absolute;bottom:0;left:0;height:2px;background:var(--accent);animation:progress 3s linear infinite}
+.phase.done{border-color:var(--green);background:rgba(34,197,94,.05)}
+.phase.done .name{color:var(--green)}
+.phase.error{border-color:var(--red);background:rgba(239,68,68,.05)}
+.phase.error .name{color:var(--red)}
+@keyframes progress{0%{width:0}100%{width:100%}}
+
+/* Log stream */
+.log{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'SF Mono',Monaco,'Cascadia Code',monospace;font-size:13px;line-height:1.8;max-height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.log:empty::after{content:'Waiting for pipeline...';color:var(--muted)}
+.log .phase-tag{color:var(--accent);font-weight:600}
+.log .ok{color:var(--green)}
+.log .warn{color:var(--yellow)}
+.log .err{color:var(--red)}
+.log .muted{color:var(--muted)}
+
+/* Results */
+.results{display:none;margin-top:24px}
+.results.visible{display:block}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.result-grid{grid-template-columns:1fr}}
+.result-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px}
+.result-card h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent)}
+.result-card ul{list-style:none;font-size:13px;line-height:1.8}
+.result-card li::before{content:'>';color:var(--accent);margin-right:8px;font-weight:bold}
+.result-card .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge.pass{background:rgba(34,197,94,.15);color:var(--green)}
+.badge.warn{background:rgba(234,179,8,.15);color:var(--yellow)}
+.badge.fail{background:rgba(239,68,68,.15);color:var(--red)}
+
+/* Sprint board */
+.sprint-controls{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.sprint-controls input{flex:1;min-width:200px}
+.sprint-controls .search-single{max-width:180px;flex:0 0 180px}
+.sprint-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.summary-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px}
+.summary-card .summary-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
+.summary-card .summary-value{font-size:22px;font-weight:700;color:var(--text)}
+.summary-card .summary-breakdown{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6}
+.sprint-board{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;overflow-x:auto}
+@media(max-width:1200px){.sprint-board{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.sprint-board{grid-template-columns:1fr}}
+.sprint-col{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;min-height:180px;min-width:0}
+.sprint-col h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:6px}
+.sprint-col h3 .count{background:var(--accent);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;margin-left:auto}
+.sprint-col h3 .col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sprint-col.empty-col{opacity:.5}
+.ticket-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:all .2s}
+.ticket-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.ticket-card.expanded{border-color:var(--accent);background:var(--bg)}
+.ticket-card .ticket-key{font-size:11px;font-weight:700;color:var(--accent)}
+.ticket-card .ticket-summary{font-size:12px;margin-top:3px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ticket-card .ticket-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.ticket-card .ticket-type{font-size:10px;padding:1px 6px;border-radius:3px;font-weight:600}
+.type-story{background:rgba(34,197,94,.15);color:var(--green)}
+.type-bug{background:rgba(239,68,68,.15);color:var(--red)}
+.type-task{background:rgba(99,102,241,.15);color:var(--accent)}
+.type-sub-task{background:rgba(6,182,212,.15);color:var(--cyan)}
+.type-epic{background:rgba(168,85,247,.15);color:#a855f7}
+.type-spike{background:rgba(249,115,22,.15);color:var(--orange)}
+.type-feature{background:rgba(59,130,246,.15);color:var(--blue)}
+.type-action{background:rgba(234,179,8,.15);color:var(--yellow)}
+.type-test{background:rgba(100,116,139,.15);color:#94a3b8}
+.ticket-card .ticket-priority{font-size:10px;color:var(--muted)}
+.ticket-card .ticket-assignee{font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(99,102,241,.1);color:var(--accent);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ticket-card .ticket-labels{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
+.ticket-card .ticket-label{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.06);color:var(--muted)}
+.ticket-card .ticket-services{font-size:10px;color:var(--cyan);margin-top:4px}
+.ticket-card .ticket-updated{font-size:9px;color:var(--muted);margin-top:4px}
+.ticket-card .ticket-status-badge{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600}
+.ticket-detail-panel{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;line-height:1.5;color:var(--muted)}
+.ticket-detail-panel .detail-section{margin-top:8px}
+.ticket-detail-panel .detail-section h4{font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.ticket-detail-panel .detail-actions{display:flex;gap:8px;margin-top:10px}
+.ticket-detail-panel .detail-actions button{font-size:11px;padding:4px 10px}
+.ticket-filter-bar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filter-chip{font-size:11px;padding:4px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);cursor:pointer;color:var(--muted);transition:all .2s;white-space:nowrap}
+.filter-chip:hover,.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sprint-loading{text-align:center;padding:60px 20px;color:var(--muted)}
+.sprint-loading .spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Service map */
+.graph-container{position:relative;width:100%;height:500px;background:radial-gradient(ellipse at 50% 50%,#0d0d1a 0%,#060610 70%,#020208 100%);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.graph-container canvas{width:100%;height:100%}
+.graph-legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.graph-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px}
+.graph-stat{font-size:12px;color:var(--muted)}
+.graph-stat span{font-weight:700;color:var(--text)}
+
+/* MCP Monitor */
+.mcp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.mcp-grid{grid-template-columns:1fr}}
+.mcp-events{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;max-height:400px;overflow-y:auto;font-family:'SF Mono',Monaco,monospace;font-size:12px;line-height:1.8}
+.mcp-events:empty::after{content:'No MCP events yet. Run a pipeline or use an MCP tool to see events here.';color:var(--muted)}
+.mcp-event{padding:4px 0;border-bottom:1px solid var(--border)}
+.mcp-event:last-child{border:none}
+.mcp-event .tool-name{color:var(--cyan);font-weight:600}
+.mcp-event .duration{color:var(--yellow)}
+.mcp-event .timestamp{color:var(--muted);font-size:11px}
+.mcp-event .error-flag{color:var(--red);font-weight:700}
+.mcp-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mcp-stat-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px}
+.mcp-stat-card h4{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.mcp-stat-card .big{font-size:28px;font-weight:700;color:var(--accent)}
+.mcp-bar{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px}
+.mcp-bar .bar-fill{height:6px;border-radius:3px;background:var(--accent);transition:width .3s}
+.mcp-bar .bar-bg{flex:1;height:6px;border-radius:3px;background:var(--border)}
+.mcp-bar .bar-label{min-width:100px;color:var(--text);font-weight:500}
+.mcp-bar .bar-count{min-width:30px;text-align:right;color:var(--muted)}
+
+/* Architecture */
+.arch{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:16px}
+.arch-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px}
+.arch-card h4{font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px}
+.arch-card p{font-size:12px;color:var(--muted);line-height:1.6}
+.arch-card code{background:rgba(99,102,241,.1);color:var(--accent);padding:1px 6px;border-radius:3px;font-size:11px}
+
+/* Commands */
+.commands{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.cmd{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.cmd code{color:var(--green);font-family:'SF Mono',Monaco,monospace;font-size:13px;font-weight:600}
+.cmd p{color:var(--muted);font-size:12px;margin-top:4px}
+
+/* Footer */
+.footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px;padding-top:16px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">
+      <h1>NEXUS</h1>
+      <span class="tag">CODE INTELLIGENCE</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="btn secondary" id="reindexBtn" onclick="reindexNow()" style="padding:8px 16px;font-size:12px">Reindex</button>
+      <div class="version" id="version"></div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('pipeline')">Pipeline</div>
+    <div class="tab" onclick="showTab('sprint')">Sprint Board</div>
+    <div class="tab" onclick="showTab('graph')">Service Map</div>
+    <div class="tab" onclick="showTab('mcp')">MCP Monitor</div>
+    <div class="tab" onclick="showTab('arch')">Architecture</div>
+  </div>
+
+  <!-- Pipeline Tab -->
+  <div class="section" id="tab-pipeline">
+    <h2><span class="dot"></span> Live Pipeline</h2>
+    <div class="input-row">
+      <input type="text" id="ticket" placeholder="Enter Jira ticket (e.g. LOY-8140)" autocomplete="off">
+      <select id="cmdSelect">
+        <option value="context">nexus context</option>
+        <option value="investigate">nexus investigate</option>
+      </select>
+      <button class="btn" id="runBtn" onclick="runPipeline()">Run</button>
+      <button class="btn danger" id="stopBtn" onclick="stopPipeline()" style="display:none">Stop</button>
+      <button class="btn secondary" id="demoBtn" onclick="runDemo()">Demo</button>
+    </div>
+    <div class="pipeline" id="phases"></div>
+    <div class="log" id="log"></div>
+    <div class="results" id="results"></div>
+  </div>
+
+  <!-- Sprint Board Tab -->
+  <div class="section hidden" id="tab-sprint">
+    <h2><span class="dot"></span> Sprint Board</h2>
+    <div class="sprint-controls">
+      <input type="text" id="sprintJql" placeholder="Custom JQL (leave blank for current sprint)" autocomplete="off">
+      <input type="text" id="ticketSearch" class="search-single" placeholder="Search ticket (LOY-1234)" autocomplete="off">
+      <button class="btn" onclick="loadSprint()">Load Sprint</button>
+      <button class="btn secondary" onclick="searchTicket()">Lookup</button>
+    </div>
+    <div class="sprint-summary" id="sprintSummary" style="display:none"></div>
+    <div class="ticket-filter-bar" id="ticketFilters" style="display:none"></div>
+    <div class="sprint-board" id="sprintBoard">
+      <div style="color:var(--muted);text-align:center;padding:60px 20px">Click "Load Sprint" to fetch current sprint tickets from Jira</div>
+    </div>
+    <div id="ticketDetailOverlay" style="display:none;margin-top:16px;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 id="ticketDetailTitle" style="font-size:16px;color:var(--accent)"></h3>
+        <button class="btn secondary" onclick="closeTicketDetail()" style="padding:6px 14px;font-size:12px">Close</button>
+      </div>
+      <div id="ticketDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Service Map Tab -->
+  <div class="section hidden" id="tab-graph">
+    <h2><span class="dot"></span> Service Map — Dependency Graph</h2>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <div id="graphStats" class="graph-stats" style="flex:1;margin-bottom:0"></div>
+      <div style="position:relative">
+        <input type="text" id="graphSearch" placeholder="Search services..." autocomplete="off"
+          style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px 8px 32px;border-radius:6px;font-size:13px;width:260px;outline:none"
+          oninput="onGraphSearch(this.value)" onfocus="onGraphSearch(this.value)" onblur="setTimeout(()=>document.getElementById('graphSearchDropdown').style.display='none',200)">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.4" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <div id="graphSearchDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-top:4px;z-index:10"></div>
+      </div>
+      <button class="btn secondary" onclick="clearGraphSearch()" style="padding:6px 12px;font-size:12px">Clear</button>
+    </div>
+    <div class="graph-container" id="graphContainer">
+      <canvas id="graphCanvas"></canvas>
+    </div>
+    <div class="graph-legend" id="graphLegend"></div>
+    <div id="nodeDetail" style="display:none;margin-top:16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 id="detailTitle" style="font-size:16px;color:var(--accent)"></h3>
+        <button class="btn secondary" onclick="closeDetail()" style="padding:6px 14px;font-size:12px">Close</button>
+      </div>
+      <div id="detailMeta" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap"></div>
+      <div id="detailGroups"></div>
+    </div>
+  </div>
+
+  <!-- MCP Monitor Tab -->
+  <div class="section hidden" id="tab-mcp">
+    <h2><span class="dot"></span> Live MCP Monitor</h2>
+    <div class="mcp-grid">
+      <div>
+        <div class="mcp-stats" id="mcpStats"></div>
+      </div>
+      <div>
+        <h3 style="font-size:14px;margin-bottom:12px;color:var(--muted)">Recent Tool Calls</h3>
+        <div class="mcp-events" id="mcpEvents"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture Tab -->
+  <div class="section hidden" id="tab-arch">
+    <h2><span class="dot"></span> Architecture</h2>
+    <div class="arch">
+      <div class="arch-card">
+        <h4>Pipeline Phases</h4>
+        <p>CLASSIFY &rarr; INVESTIGATE &rarr; CONTEXT</p>
+        <p style="margin-top:8px">Zero-LLM pipeline. From Jira ticket to agent-ready context bundle.</p>
+      </div>
+      <div class="arch-card">
+        <h4>Code Intelligence</h4>
+        <p>Tree-sitter parsing for <code>Java</code> <code>TypeScript</code> <code>Kotlin</code> <code>Swift</code> <code>Python</code></p>
+        <p style="margin-top:8px">Cross-repo dependency graph, call chain tracing, facade detection, pattern recognition.</p>
+      </div>
+      <div class="arch-card">
+        <h4>MCP Server</h4>
+        <p>14 tools over JSON-RPC 2.0 stdio. Works with any MCP-compatible AI agent.</p>
+        <p style="margin-top:8px">11 code intelligence + 3 context tools.</p>
+      </div>
+      <div class="arch-card">
+        <h4>Integrations</h4>
+        <p><code>Jira</code> ticket fetch + transition &bull; <code>Confluence</code> TD publish &bull; <code>Figma</code> design extraction &bull; <code>Bedrock</code> LLM</p>
+      </div>
+    </div>
+    <h3 style="font-size:16px;font-weight:600;margin-top:24px;margin-bottom:8px">Commands</h3>
+    <div class="commands">
+      <div class="cmd"><code>nexus context LOY-8140</code><p>Agent-ready context bundle. Zero LLM.</p></div>
+      <div class="cmd"><code>nexus investigate LOY-8140</code><p>Code scan, raw JSON. 45ms.</p></div>
+      <div class="cmd"><code>nexus serve</code><p>Start MCP server (stdio).</p></div>
+      <div class="cmd"><code>nexus crawl</code><p>Incremental reindex.</p></div>
+      <div class="cmd"><code>nexus demo</code><p>Launch this dashboard.</p></div>
+      <div class="cmd"><code>nexus init .</code><p>One command setup. Binary &rarr; ready.</p></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Nexus &mdash; Built by Anurag Rastogi &bull; Code Intelligence + Autonomous SDLC
+  </div>
+</div>
+
+<script>
+const PHASES = ['CLASSIFY','INVESTIGATE','CONTEXT'];
+let eventSource = null;
+let mcpStream = null;
+
+// ── Tab Switching ────────────────────────────────────────────────
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.remove('hidden');
+
+  if (name === 'sprint' && !sprintLoaded) loadSprint();
+  if (name === 'graph') loadGraph();
+  if (name === 'mcp') { loadMCPEvents(); startMCPStream(); }
+}
+
+// ── Status ───────────────────────────────────────────────────────
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    document.getElementById('version').textContent = 'v' + d.version;
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><div class="label">Services</div><div class="value accent">${d.services}</div></div>
+      <div class="stat"><div class="label">Edges</div><div class="value blue">${d.edges}</div></div>
+      <div class="stat"><div class="label">MCP Tools</div><div class="value green">${d.tools}</div></div>
+      <div class="stat"><div class="label">Units</div><div class="value">${d.units || 0}</div></div>
+      <div class="stat"><div class="label">Endpoints</div><div class="value">${d.endpoints || 0}</div></div>
+      <div class="stat"><div class="label">LLM</div><div class="value" style="font-size:13px">${d.llm || 'Not connected'}</div></div>
+    `;
+  } catch(e) {
+    document.getElementById('stats').innerHTML = '<div class="stat"><div class="label">Status</div><div class="value">Loading...</div></div>';
+  }
+}
+
+// ── Reindex ─────────────────────────────────────────────────────
+
+async function reindexNow() {
+  const btn = document.getElementById('reindexBtn');
+  btn.disabled = true;
+  btn.textContent = 'Reindexing...';
+  try {
+    const r = await fetch('/api/reindex', { method: 'POST' });
+    const d = await r.json();
+    if (d.error) {
+      btn.textContent = 'Failed';
+      setTimeout(() => { btn.textContent = 'Reindex'; btn.disabled = false; }, 3000);
+    } else {
+      btn.textContent = `Done (${d.services} svc, ${d.duration})`;
+      loadStatus();
+      setTimeout(() => { btn.textContent = 'Reindex'; btn.disabled = false; }, 5000);
+    }
+  } catch(e) {
+    btn.textContent = 'Error';
+    setTimeout(() => { btn.textContent = 'Reindex'; btn.disabled = false; }, 3000);
+  }
+}
+
+// ── Pipeline ─────────────────────────────────────────────────────
+
+function initPhases() {
+  document.getElementById('phases').innerHTML = PHASES.map(p =>
+    `<div class="phase" id="phase-${p}"><div class="name">${p}</div><div class="time" id="time-${p}"></div></div>`
+  ).join('');
+}
+
+function resetUI() {
+  initPhases();
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('results').innerHTML = '';
+}
+
+function appendLog(text) {
+  const log = document.getElementById('log');
+  text = text.replace(/\[(CLASSIFY|INVESTIGATE|CONTEXT|INIT|DONE)\]/g, '<span class="phase-tag">[$1]</span>');
+  text = text.replace(/(pass|PASS)/gi, '<span class="ok">$1</span>');
+  text = text.replace(/(WARN|warning)/gi, '<span class="warn">$1</span>');
+  text = text.replace(/(FAIL|error|failed)/gi, '<span class="err">$1</span>');
+  log.innerHTML += text + '\n';
+  log.scrollTop = log.scrollHeight;
+}
+
+function setPhase(name, state, time) {
+  const el = document.getElementById('phase-' + name);
+  if (!el) return;
+  el.className = 'phase ' + state;
+  if (time) document.getElementById('time-' + name).textContent = time;
+}
+
+function runPipeline() {
+  const ticket = document.getElementById('ticket').value.trim();
+  if (!ticket) { document.getElementById('ticket').focus(); return; }
+  const cmd = document.getElementById('cmdSelect').value;
+  startStream('/api/run?ticket=' + encodeURIComponent(ticket) + '&cmd=' + cmd);
+}
+
+function runDemo() { startStream('/api/demo'); }
+
+function stopPipeline() {
+  fetch('/api/stop').then(r => r.json()).then(d => {
+    appendLog('<span class="err">Pipeline stopped: ' + d.status + '</span>');
+  });
+}
+
+function startStream(url) {
+  resetUI();
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('demoBtn').disabled = true;
+  document.getElementById('stopBtn').style.display = 'inline-block';
+
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource(url);
+
+  eventSource.addEventListener('log', e => appendLog(e.data));
+
+  eventSource.addEventListener('phase', e => {
+    const d = JSON.parse(e.data);
+    PHASES.forEach(p => {
+      if (p === d.name) setPhase(p, 'active');
+    });
+    if (d.prev) setPhase(d.prev, 'done', d.prev_time);
+  });
+
+  eventSource.addEventListener('done', e => {
+    const d = JSON.parse(e.data);
+    PHASES.forEach(p => setPhase(p, 'done'));
+    if (d.phase) setPhase(d.phase, 'done', d.time);
+    showResults(d);
+    cleanup();
+  });
+
+  eventSource.addEventListener('error_result', e => {
+    const d = JSON.parse(e.data);
+    if (d.phase) setPhase(d.phase, 'error');
+    appendLog('<span class="err">Pipeline failed: ' + (d.error || 'unknown') + '</span>');
+    cleanup();
+  });
+
+  eventSource.onerror = () => {
+    appendLog('<span class="muted">Stream ended</span>');
+    cleanup();
+  };
+}
+
+function cleanup() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('demoBtn').disabled = false;
+  document.getElementById('stopBtn').style.display = 'none';
+}
+
+function showResults(d) {
+  const el = document.getElementById('results');
+  let html = '<div class="result-grid">';
+
+  if (d.requirements) {
+    html += `<div class="result-card"><h3>Requirements (${d.requirements.length})</h3><ul>`;
+    d.requirements.forEach(r => {
+      const badge = r.priority === 'must' ? 'pass' : 'warn';
+      html += `<li><span class="badge ${badge}">${r.priority}</span> ${r.id}: ${r.description}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  if (d.validation) {
+    html += `<div class="result-card"><h3>Validation: <span class="badge ${d.validation.verdict === 'PASS' ? 'pass' : 'warn'}">${d.validation.verdict}</span></h3><ul>`;
+    (d.validation.dimensions || []).forEach(dim => {
+      const badge = dim.verdict === 'PASS' ? 'pass' : dim.verdict === 'WARN' ? 'warn' : 'fail';
+      html += `<li><span class="badge ${badge}">${dim.verdict}</span> ${dim.name}: ${dim.detail}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  if (d.plan) {
+    html += `<div class="result-card"><h3>Plan (${d.plan.steps ? d.plan.steps.length : 0} steps)</h3>`;
+    html += `<p style="color:var(--muted);font-size:13px;margin-bottom:8px">${d.plan.summary || ''}</p><ul>`;
+    (d.plan.steps || []).forEach((s, i) => {
+      html += `<li>${s.action} ${s.file}${s.covers ? ' [' + s.covers.join(', ') + ']' : ''}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  if (d.services) {
+    html += `<div class="result-card"><h3>Services (${d.services.length})</h3><ul>`;
+    d.services.forEach(s => { html += `<li>${s}</li>`; });
+    html += '</ul></div>';
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+  el.classList.add('visible');
+}
+
+// ── Sprint Board ─────────────────────────────────────────────────
+
+let sprintData = null;
+let activeFilters = { type: null, assignee: null, label: null };
+let sprintLoaded = false;
+
+// RCG Jira status → column mapping
+const STATUS_COLUMNS = {
+  'Backlog':             'Backlog',
+  'Reported':            'Backlog',
+  'Ready For Dev':       'Backlog',
+  'Open':                'Backlog',
+  'Reopened':            'Backlog',
+  'To Do':               'Backlog',
+  'In Development':      'In Dev',
+  'In Progress':         'In Dev',
+  'Development':         'In Dev',
+  'Active':              'In Dev',
+  'In Review':           'Review',
+  'Code Review':         'Review',
+  'Ready for SignOff':   'SignOff',
+  'In Test':             'QA',
+  'QA Test':             'QA',
+  'QA Blocked':          'QA',
+  'QA Complete':         'QA',
+  'QA':                  'QA',
+  'Ready for Production':'Done',
+  'Done':                'Done',
+  'Closed':              'Done',
+  'Resolved':            'Done',
+  'Abandoned':           'Done',
+  'Complete':            'Done',
+};
+const COL_ORDER = ['Backlog','In Dev','Review','SignOff','QA','Done'];
+const COL_COLORS = { 'Backlog':'#64748b','In Dev':'#f97316','Review':'#a855f7','SignOff':'#3b82f6','QA':'#06b6d4','Done':'#22c55e' };
+const COL_LABELS = { 'Backlog':'Backlog','In Dev':'In Development','Review':'Code Review','SignOff':'Sign Off','QA':'QA / Testing','Done':'Done' };
+
+function mapStatusToColumn(status) {
+  if (STATUS_COLUMNS[status]) return STATUS_COLUMNS[status];
+  const s = status.toLowerCase();
+  if (s.includes('done') || s.includes('closed') || s.includes('resolved') || s.includes('production') || s.includes('complete') || s.includes('abandon')) return 'Done';
+  if (s.includes('qa') || s.includes('test')) return 'QA';
+  if (s.includes('signoff') || s.includes('sign off') || s.includes('sign-off')) return 'SignOff';
+  if (s.includes('review')) return 'Review';
+  if (s.includes('progress') || s.includes('dev') || s.includes('active')) return 'In Dev';
+  return 'Backlog';
+}
+
+async function loadSprint() {
+  const jql = document.getElementById('sprintJql').value.trim();
+  const board = document.getElementById('sprintBoard');
+  board.innerHTML = '<div class="sprint-loading"><div class="spinner"></div><div>Loading sprint from Jira...</div></div>';
+  document.getElementById('sprintSummary').style.display = 'none';
+  document.getElementById('ticketFilters').style.display = 'none';
+
+  try {
+    let url = '/api/sprint';
+    if (jql) url += '?jql=' + encodeURIComponent(jql);
+    const r = await fetch(url);
+    const d = await r.json();
+
+    if (d.error && (!d.tickets || d.tickets.length === 0)) {
+      board.innerHTML = `<div style="color:var(--yellow);text-align:center;padding:40px">${d.error}</div>`;
+      return;
+    }
+
+    sprintData = d;
+    sprintLoaded = true;
+    activeFilters = { type: null, assignee: null, label: null };
+    renderSprintSummary(d);
+    renderFilterBar(d.tickets);
+    renderSprintBoard(d.tickets);
+  } catch(e) {
+    board.innerHTML = `<div style="color:var(--red);text-align:center;padding:40px">Failed to load sprint: ${e.message}</div>`;
+  }
+}
+
+function renderSprintSummary(d) {
+  const summary = d.summary;
+  if (!summary) return;
+  const el = document.getElementById('sprintSummary');
+  el.style.display = 'grid';
+
+  const total = summary.total || 0;
+  const statusEntries = Object.entries(summary.byStatus || {}).sort((a,b) => b[1]-a[1]);
+  const typeEntries = Object.entries(summary.byType || {}).sort((a,b) => b[1]-a[1]);
+  const assigneeEntries = Object.entries(summary.byAssignee || {}).sort((a,b) => b[1]-a[1]);
+
+  // Count per column
+  const colCounts = {};
+  COL_ORDER.forEach(c => colCounts[c] = 0);
+  statusEntries.forEach(([s, cnt]) => { colCounts[mapStatusToColumn(s)] = (colCounts[mapStatusToColumn(s)]||0) + cnt; });
+
+  const doneCount = colCounts['Done'] || 0;
+  const inFlightCount = total - doneCount - (colCounts['Backlog']||0);
+  const progressPct = total > 0 ? Math.round(doneCount / total * 100) : 0;
+
+  el.innerHTML = `
+    <div class="summary-card">
+      <div class="summary-label">Total Tickets</div>
+      <div class="summary-value">${total}</div>
+      <div class="summary-breakdown">${d.tickets ? d.tickets.length : 0} loaded</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Progress</div>
+      <div class="summary-value" style="color:var(--green)">${progressPct}%</div>
+      <div class="summary-breakdown">${doneCount} done, ${inFlightCount} in flight</div>
+      <div style="margin-top:6px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="height:100%;width:${progressPct}%;background:var(--green);border-radius:2px"></div></div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">By Status</div>
+      <div class="summary-breakdown">${statusEntries.slice(0,6).map(([k,v]) => `<div style="display:flex;justify-content:space-between"><span>${k}</span><span style="color:var(--text);font-weight:600">${v}</span></div>`).join('')}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">By Type</div>
+      <div class="summary-breakdown">${typeEntries.map(([k,v]) => `<div style="display:flex;justify-content:space-between"><span>${k}</span><span style="color:var(--text);font-weight:600">${v}</span></div>`).join('')}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Top Assignees</div>
+      <div class="summary-breakdown">${assigneeEntries.slice(0,5).map(([k,v]) => `<div style="display:flex;justify-content:space-between"><span>${k.split(' ')[0]}</span><span style="color:var(--text);font-weight:600">${v}</span></div>`).join('')}</div>
+    </div>
+  `;
+}
+
+function renderFilterBar(tickets) {
+  const el = document.getElementById('ticketFilters');
+  const assignees = [...new Set(tickets.map(t => t.assignee).filter(Boolean))].sort();
+  const types = [...new Set(tickets.map(t => t.type).filter(Boolean))].sort();
+  const labels = {};
+  tickets.forEach(t => (t.labels||[]).forEach(l => { labels[l] = (labels[l]||0)+1; }));
+  const topLabels = Object.entries(labels).sort((a,b) => b[1]-a[1]).slice(0,6).map(([l]) => l);
+
+  el.style.display = 'flex';
+  let html = '<span style="font-size:11px;color:var(--muted);margin-right:4px;font-weight:600">Filter:</span>';
+  html += `<span class="filter-chip active" data-filter="all" onclick="applyFilter('all',null,this)">All (${tickets.length})</span>`;
+  html += '<span style="width:1px;background:var(--border);margin:0 4px"></span>';
+  types.forEach(t => {
+    const cnt = tickets.filter(x => x.type === t).length;
+    const escaped = t.replace(/'/g, "\\'");
+    html += `<span class="filter-chip" data-filter="type" onclick="applyFilter('type','${escaped}',this)">${t} (${cnt})</span>`;
+  });
+  html += '<span style="width:1px;background:var(--border);margin:0 4px"></span>';
+  assignees.slice(0,8).forEach(a => {
+    const escaped = a.replace(/'/g, "\\'");
+    html += `<span class="filter-chip" data-filter="assignee" onclick="applyFilter('assignee','${escaped}',this)">${a.split(' ')[0]}</span>`;
+  });
+  if (topLabels.length > 0) {
+    html += '<span style="width:1px;background:var(--border);margin:0 4px"></span>';
+    topLabels.forEach(l => {
+      const escaped = l.replace(/'/g, "\\'");
+      html += `<span class="filter-chip" data-filter="label" onclick="applyFilter('label','${escaped}',this)">${l}</span>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
+function applyFilter(kind, val, chipEl) {
+  if (kind === 'all') {
+    activeFilters = { type: null, assignee: null, label: null };
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chipEl.classList.add('active');
+  } else {
+    // Toggle behavior — click again to deactivate
+    if (activeFilters[kind] === val) {
+      activeFilters[kind] = null;
+      chipEl.classList.remove('active');
+    } else {
+      // Remove active from same filter group
+      document.querySelectorAll(`.filter-chip[data-filter="${kind}"]`).forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.filter-chip[data-filter="all"]').forEach(c => c.classList.remove('active'));
+      activeFilters[kind] = val;
+      chipEl.classList.add('active');
+    }
+    // If nothing active, highlight All
+    if (!activeFilters.type && !activeFilters.assignee && !activeFilters.label) {
+      document.querySelector('.filter-chip[data-filter="all"]').classList.add('active');
+    }
+  }
+  if (sprintData) renderSprintBoard(sprintData.tickets);
+}
+
+function renderSprintBoard(tickets) {
+  const board = document.getElementById('sprintBoard');
+  let filtered = tickets;
+  if (activeFilters.type) filtered = filtered.filter(t => t.type === activeFilters.type);
+  if (activeFilters.assignee) filtered = filtered.filter(t => t.assignee === activeFilters.assignee);
+  if (activeFilters.label) filtered = filtered.filter(t => (t.labels||[]).includes(activeFilters.label));
+
+  // Exclude Test/Test Set from board by default (clutters view)
+  const excludeTypes = ['Test', 'Test Set'];
+  if (!activeFilters.type) {
+    filtered = filtered.filter(t => !excludeTypes.includes(t.type));
+  }
+
+  const columns = {};
+  COL_ORDER.forEach(c => columns[c] = []);
+  filtered.forEach(t => {
+    const col = mapStatusToColumn(t.status || '');
+    if (columns[col]) columns[col].push(t);
+    else columns['Backlog'].push(t);
+  });
+
+  let html = '';
+  COL_ORDER.forEach(colKey => {
+    const colTickets = columns[colKey];
+    const dotColor = COL_COLORS[colKey];
+    const label = COL_LABELS[colKey];
+    const isEmpty = colTickets.length === 0;
+    html += `<div class="sprint-col${isEmpty ? ' empty-col' : ''}"><h3><span class="col-dot" style="background:${dotColor}"></span>${label}<span class="count">${colTickets.length}</span></h3>`;
+    if (isEmpty) {
+      html += `<div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0">No tickets</div>`;
+    }
+    colTickets.forEach(t => {
+      const typeClass = (t.type || '').toLowerCase().replace(/[\s-]+/g, '-');
+      const services = (t.services || []).length > 0 ? `<div class="ticket-services">${t.services.join(', ')}</div>` : '';
+      const assignee = t.assignee ? `<span class="ticket-assignee" title="${t.assignee}">${t.assignee.split(' ')[0]}</span>` : '';
+      const updated = t.updated ? `<div class="ticket-updated">${formatJiraDate(t.updated)}</div>` : '';
+      html += `<div class="ticket-card" id="tc-${t.key}" onclick="toggleTicketExpand('${t.key}', event)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="ticket-key">${t.key}</div>
+          <span style="font-size:10px;color:var(--muted);cursor:pointer;padding:2px" onclick="event.stopPropagation();openJira('${t.key}')" title="Open in Jira">&#8599;</span>
+        </div>
+        <div class="ticket-summary">${t.summary || ''}</div>
+        <div class="ticket-meta">
+          <span class="ticket-type type-${typeClass}">${t.type || 'Task'}</span>
+          ${priorityIcon(t.priority)}
+          ${assignee}
+          ${updated}
+        </div>
+        ${services}
+        <div class="ticket-detail-panel" id="expand-${t.key}" style="display:none"></div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  board.innerHTML = html;
+}
+
+function priorityIcon(p) {
+  if (!p) return '';
+  const map = { 'Highest':'&#9650;', 'High':'&#9650;', 'Medium':'&#9644;', 'Low':'&#9660;', 'Lowest':'&#9660;' };
+  const colorMap = { 'Highest':'#ef4444', 'High':'#f97316', 'Medium':'#eab308', 'Low':'#3b82f6', 'Lowest':'#64748b' };
+  return `<span style="color:${colorMap[p] || 'var(--muted)'}">${map[p] || ''}</span>`;
+}
+
+function formatJiraDate(d) {
+  if (!d) return '';
+  try { const dt = new Date(d); const now = new Date(); const diff = (now - dt) / 3600000;
+    if (diff < 1) return Math.round(diff * 60) + 'm ago';
+    if (diff < 24) return Math.round(diff) + 'h ago';
+    if (diff < 168) return Math.round(diff / 24) + 'd ago';
+    return dt.toLocaleDateString();
+  } catch(e) { return d.split('T')[0]; }
+}
+
+function toggleTicketExpand(key, event) {
+  const panel = document.getElementById('expand-' + key);
+  const card = document.getElementById('tc-' + key);
+  if (!panel) return;
+  if (panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    card.classList.remove('expanded');
+    return;
+  }
+  document.querySelectorAll('.ticket-detail-panel').forEach(p => { p.style.display = 'none'; });
+  document.querySelectorAll('.ticket-card').forEach(c => c.classList.remove('expanded'));
+  card.classList.add('expanded');
+  panel.style.display = 'block';
+  panel.innerHTML = '<div style="color:var(--muted)">Loading...</div>';
+
+  fetch('/api/ticket?key=' + key).then(r => r.json()).then(d => {
+    if (d.error) { panel.innerHTML = `<div style="color:var(--yellow)">${d.error}</div>`; return; }
+    const i = d.issue;
+    const desc = (i.description || '').substring(0, 300);
+    const ac = (i.acceptance_criteria || '').substring(0, 200);
+    const linked = (i.linked_issues || []).join(', ') || 'None';
+    const transitions = (d.transitions || []).map(t => `<button class="btn secondary" style="font-size:10px;padding:3px 8px" onclick="event.stopPropagation();transitionTicket('${key}','${t.id}','${t.name}')">${t.name}</button>`).join('');
+    panel.innerHTML = `
+      ${desc ? `<div class="detail-section"><h4>Description</h4>${desc}${i.description && i.description.length > 300 ? '...' : ''}</div>` : ''}
+      ${ac ? `<div class="detail-section"><h4>Acceptance Criteria</h4>${ac}</div>` : ''}
+      <div class="detail-section"><h4>Linked Issues</h4>${linked}</div>
+      ${transitions ? `<div class="detail-section"><h4>Transition</h4><div class="detail-actions">${transitions}</div></div>` : ''}
+      <div class="detail-actions" style="margin-top:10px">
+        <button class="btn" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();document.getElementById('ticket').value='${key}';showTab('pipeline')">Run Pipeline</button>
+        <button class="btn secondary" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();openJira('${key}')">Open in Jira</button>
+      </div>
+    `;
+  }).catch(e => { panel.innerHTML = `<div style="color:var(--red)">${e.message}</div>`; });
+}
+
+async function transitionTicket(key, transitionId, name) {
+  if (!confirm(`Move ${key} to "${name}"?`)) return;
+  try {
+    await fetch('/api/sprint', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'transition',key,transitionId}) });
+    loadSprint();
+  } catch(e) { alert('Transition failed: ' + e.message); }
+}
+
+async function searchTicket() {
+  const key = document.getElementById('ticketSearch').value.trim();
+  if (!key) { document.getElementById('ticketSearch').focus(); return; }
+  const overlay = document.getElementById('ticketDetailOverlay');
+  overlay.style.display = 'block';
+  document.getElementById('ticketDetailTitle').textContent = key;
+  document.getElementById('ticketDetailBody').innerHTML = '<div style="color:var(--muted)">Loading...</div>';
+
+  loadTicketDetail(key);
+}
+
+async function loadTicketDetail(key) {
+  const overlay = document.getElementById('ticketDetailOverlay');
+  overlay.style.display = 'block';
+  document.getElementById('ticketDetailTitle').textContent = key;
+  const body = document.getElementById('ticketDetailBody');
+  body.innerHTML = '<div style="color:var(--muted)">Loading ticket details...</div>';
+
+  try {
+    const r = await fetch('/api/ticket?key=' + encodeURIComponent(key));
+    const d = await r.json();
+    if (d.error) { body.innerHTML = `<div style="color:var(--yellow)">${d.error}</div>`; return; }
+    const i = d.issue;
+    const transitions = (d.transitions || []).map(t => `<button class="btn secondary" style="font-size:11px;padding:4px 10px" onclick="transitionTicket('${key}','${t.id}','${t.name}')">${t.name}</button>`).join(' ');
+    const remoteLinks = (i.remote_links || []).map(l => `<a href="${l}" target="_blank" style="color:var(--cyan);font-size:12px;word-break:break-all">${l}</a>`).join('<br>');
+    const linked = (i.linked_issues || []).map(k => `<a href="javascript:void(0)" class="ticket-key" style="cursor:pointer" onclick="openJira('${k}')">${k}</a>`).join(' ');
+    const labels = (i.labels || []).map(l => `<span class="ticket-label" style="padding:2px 6px;border-radius:3px;background:rgba(255,255,255,.06);font-size:11px">${l}</span>`).join(' ');
+    const components = (i.components || []).map(c => `<span style="padding:2px 6px;border-radius:3px;background:rgba(99,102,241,.1);color:var(--accent);font-size:11px">${c}</span>`).join(' ');
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div><span style="color:var(--muted);font-size:11px">Status</span><div style="font-size:14px;font-weight:600">${i.status || 'N/A'}</div></div>
+        <div><span style="color:var(--muted);font-size:11px">Type</span><div style="font-size:14px">${i.type || 'N/A'}</div></div>
+        <div><span style="color:var(--muted);font-size:11px">Priority</span><div style="font-size:14px">${priorityIcon(i.priority)} ${i.priority || 'N/A'}</div></div>
+        <div><span style="color:var(--muted);font-size:11px">Assignee</span><div style="font-size:14px">${i.assignee || 'Unassigned'}</div></div>
+      </div>
+      ${components ? `<div style="margin-bottom:12px"><span style="color:var(--muted);font-size:11px">Components</span><div style="margin-top:4px">${components}</div></div>` : ''}
+      ${labels ? `<div style="margin-bottom:12px"><span style="color:var(--muted);font-size:11px">Labels</span><div style="margin-top:4px">${labels}</div></div>` : ''}
+      <div style="margin-bottom:12px"><span style="color:var(--muted);font-size:11px">Summary</span><div style="font-size:14px;margin-top:4px;line-height:1.5">${i.summary || ''}</div></div>
+      ${i.description ? `<div style="margin-bottom:12px"><span style="color:var(--muted);font-size:11px">Description</span><div style="font-size:13px;margin-top:4px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto">${i.description}</div></div>` : ''}
+      ${i.acceptance_criteria ? `<div style="margin-bottom:12px"><span style="color:var(--muted);font-size:11px">Acceptance Criteria</span><div style="font-size:13px;margin-top:4px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto">${i.acceptance_criteria}</div></div>` : ''}
+      ${linked ? `<div style="margin-bottom:12px"><span style="color:var(--muted);font-size:11px">Linked Issues</span><div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">${linked}</div></div>` : ''}
+      ${remoteLinks ? `<div style="margin-bottom:12px"><span style="color:var(--muted);font-size:11px">Remote Links</span><div style="margin-top:4px">${remoteLinks}</div></div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn" onclick="openJira('${key}')">Open in Jira</button>
+        <button class="btn secondary" onclick="document.getElementById('ticket').value='${key}';showTab('pipeline')">Run Pipeline</button>
+        ${transitions ? transitions : ''}
+      </div>
+    `;
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--red)">Error: ${e.message}</div>`;
+  }
+}
+
+function closeTicketDetail() {
+  document.getElementById('ticketDetailOverlay').style.display = 'none';
+}
+
+function openJira(key) {
+  window.open('https://jira.rccl.com/browse/' + key, '_blank');
+}
+
+document.getElementById('ticketSearch').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchTicket();
+});
+
+// ── Service Map (Force-Directed Graph) ───────────────────────────
+
+let graphData = null;
+let gNodes = [];
+let gNodeMap = {};
+let hoveredNode = null;
+let selectedNode = null;
+let dragNode = null;
+let searchNode = null;
+let searchNeighbors = new Set();
+let camX = 0, camY = 0, camZoom = 1;
+let isDragging = false, lastMx = 0, lastMy = 0;
+const PLATFORM_COLORS = { java:'#f97316','react-native':'#06b6d4',kotlin:'#a855f7',swift:'#ef4444',typescript:'#3b82f6',python:'#22c55e',external:'#9ca3af','':'#6366f1' };
+const EDGE_COLORS = { HTTP_CALL:'#ef4444', BUILD_DEPENDENCY:'#6366f1', KAFKA_PRODUCE:'#22c55e', KAFKA_CONSUME:'#06b6d4', FRONTEND_API_CALL:'#eab308', IMPORT_DEPENDENCY:'#a855f7' };
+
+async function loadGraph() {
+  try {
+    const r = await fetch('/api/graph');
+    graphData = await r.json();
+
+    document.getElementById('graphStats').innerHTML = `
+      <div class="graph-stat">Services: <span>${graphData.nodes.length}</span></div>
+      <div class="graph-stat">Dependencies: <span>${graphData.edges.length}</span></div>
+      <div class="graph-stat" style="font-size:11px;color:var(--muted)">Drag to pan &bull; Scroll to zoom &bull; Click node to inspect</div>
+    `;
+
+    const platforms = {};
+    graphData.nodes.forEach(n => { platforms[n.platform] = (platforms[n.platform]||0)+1; });
+    const legendEl = document.getElementById('graphLegend');
+    let legendHtml = Object.entries(platforms).map(([p,c]) =>
+      `<div class="legend-item"><div class="legend-dot" style="background:${PLATFORM_COLORS[p]||'#6366f1'}"></div>${p} (${c})</div>`
+    ).join('');
+    legendHtml += `<div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>HTTP Call</div>`;
+    legendHtml += `<div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>Build Dep</div>`;
+    legendEl.innerHTML = legendHtml;
+
+    initForceGraph();
+  } catch(e) {
+    document.getElementById('graphStats').innerHTML = `<div class="graph-stat" style="color:var(--yellow)">No services indexed. Run <code>nexus crawl && nexus analyze</code></div>`;
+  }
+}
+
+function initForceGraph() {
+  const canvas = document.getElementById('graphCanvas');
+  const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
+
+  // Cluster by platform — neurons of the same type group together
+  const platGroups = {};
+  graphData.nodes.forEach(n => { const p = n.platform||''; (platGroups[p] = platGroups[p]||[]).push(n); });
+  const platKeys = Object.keys(platGroups);
+  let nodeIdx = 0;
+
+  gNodes = graphData.nodes.map((n) => {
+    const platI = platKeys.indexOf(n.platform||'');
+    const clusterAngle = (2*Math.PI*platI) / Math.max(platKeys.length,1);
+    const clusterR = Math.min(W,H) * 0.22;
+    const cx = W/2 + clusterR*Math.cos(clusterAngle);
+    const cy = H/2 + clusterR*Math.sin(clusterAngle);
+    const jitter = 60 + Math.random()*40;
+    const a = Math.random()*Math.PI*2;
+    nodeIdx++;
+    return { ...n,
+      x: cx + jitter*Math.cos(a),
+      y: cy + jitter*Math.sin(a),
+      vx: 0, vy: 0,
+      r: n.external ? 10 : 8 + Math.sqrt(Math.min(n.classes||1, 500)) * 1.0,
+      pulse: Math.random()*Math.PI*2
+    };
+  });
+  gNodeMap = {};
+  gNodes.forEach(n => gNodeMap[n.id] = n);
+  camX = 0; camY = 0; camZoom = 1;
+
+  canvas.onmousedown = onGDown;
+  canvas.onmousemove = onGMove;
+  canvas.onmouseup = onGUp;
+  canvas.onwheel = onGWheel;
+  canvas.onclick = onGClick;
+
+  runSimulation();
+}
+
+let animFrame = 0;
+
+function runSimulation() {
+  const canvas = document.getElementById('graphCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+
+  let tick = 0;
+  const maxTick = 400;
+
+  function step() {
+    tick++;
+    animFrame = tick;
+    const alpha = Math.max(0, 1 - tick/maxTick);
+    if (alpha > 0) simulate(alpha, W, H);
+    render(ctx, dpr, W, H);
+    if (tick < maxTick || dragNode) requestAnimationFrame(step);
+    else {
+      // Keep gentle animation for the living neuron feel
+      function breathe() {
+        animFrame++;
+        render(ctx, dpr, W, H);
+        requestAnimationFrame(breathe);
+      }
+      breathe();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function simulate(alpha, W, H) {
+  const k = 100;
+  // Repulsion — softer, more organic spread
+  for (let i = 0; i < gNodes.length; i++) {
+    for (let j = i+1; j < gNodes.length; j++) {
+      let dx = gNodes[j].x - gNodes[i].x;
+      let dy = gNodes[j].y - gNodes[i].y;
+      let d = Math.sqrt(dx*dx + dy*dy) || 1;
+      let force = (k*k) / d * alpha * 0.4;
+      let fx = (dx/d)*force, fy = (dy/d)*force;
+      gNodes[i].vx -= fx; gNodes[i].vy -= fy;
+      gNodes[j].vx += fx; gNodes[j].vy += fy;
+    }
+  }
+  // Attraction along edges — like synaptic bonds
+  (graphData.edges||[]).forEach(e => {
+    const a = gNodeMap[e.from], b = gNodeMap[e.to];
+    if (!a || !b) return;
+    let dx = b.x-a.x, dy = b.y-a.y;
+    let d = Math.sqrt(dx*dx+dy*dy) || 1;
+    let force = (d - k*1.8) * 0.008 * alpha;
+    let fx = (dx/d)*force, fy = (dy/d)*force;
+    a.vx += fx; a.vy += fy;
+    b.vx -= fx; b.vy -= fy;
+  });
+  // Gentle center gravity
+  gNodes.forEach(n => {
+    n.vx += (W/2 - n.x) * 0.0008 * alpha;
+    n.vy += (H/2 - n.y) * 0.0008 * alpha;
+  });
+  // Apply velocity with organic damping
+  gNodes.forEach(n => {
+    if (n === dragNode) return;
+    n.vx *= 0.82; n.vy *= 0.82;
+    n.x += n.vx; n.y += n.vy;
+    n.x = Math.max(n.r+10, Math.min(W-n.r-10, n.x));
+    n.y = Math.max(n.r+10, Math.min(H-n.r-10, n.y));
+  });
+}
+
+function render(ctx, dpr, W, H) {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(W/2 + camX, H/2 + camY);
+  ctx.scale(camZoom, camZoom);
+  ctx.translate(-W/2, -H/2);
+
+  const t = animFrame * 0.02;
+
+  // Axon connections — curved bezier paths like dendrites
+  (graphData.edges||[]).forEach(e => {
+    const a = gNodeMap[e.from], b = gNodeMap[e.to];
+    if (!a || !b) return;
+    const dx = b.x-a.x, dy = b.y-a.y;
+    const d = Math.sqrt(dx*dx+dy*dy) || 1;
+    const ux = dx/d, uy = dy/d;
+    const sx = a.x + ux*a.r, sy = a.y + uy*a.r;
+    const ex = b.x - ux*b.r, ey = b.y - uy*b.r;
+    const color = EDGE_COLORS[e.type] || '#6366f1';
+    const isHovered = hoveredNode && (hoveredNode.id===e.from || hoveredNode.id===e.to);
+    const isSearchEdge = searchNode && (searchNode.id===e.from || searchNode.id===e.to);
+    const dimmed = searchNode && !isSearchEdge;
+
+    // Curved path — perpendicular offset for organic look
+    const mx = (sx+ex)/2, my = (sy+ey)/2;
+    const curve = d * 0.15 * (e.from < e.to ? 1 : -1);
+    const cx1 = mx + (-uy)*curve, cy1 = my + ux*curve;
+
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(cx1, cy1, ex, ey);
+    ctx.strokeStyle = dimmed ? color+'0a' : isSearchEdge ? color+'ee' : isHovered ? color+'cc' : color+'35';
+    ctx.lineWidth = isSearchEdge ? 3 : isHovered ? 2.5 : 1;
+    ctx.stroke();
+
+    // Synaptic pulse — traveling dot along the axon
+    if (isSearchEdge || isHovered || Math.random() < 0.03) {
+      const pulseT = ((t * 0.8 + d * 0.01) % 1);
+      const pt = 1 - pulseT;
+      const px = (1-pt)*(1-pt)*sx + 2*(1-pt)*pt*cx1 + pt*pt*ex;
+      const py = (1-pt)*(1-pt)*sy + 2*(1-pt)*pt*cy1 + pt*pt*ey;
+      ctx.beginPath();
+      ctx.arc(px, py, isHovered ? 3 : 2, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+  });
+
+  // Neuron cell bodies
+  gNodes.forEach(n => {
+    const isHov = hoveredNode === n;
+    const isSel = selectedNode === n;
+    const isSearchMatch = searchNode && (n === searchNode || searchNeighbors.has(n.id));
+    const nodeDimmed = searchNode && !isSearchMatch;
+    if (nodeDimmed) { ctx.globalAlpha = 0.12; }
+    const color = PLATFORM_COLORS[n.platform] || '#6366f1';
+    const pulse = Math.sin(t + n.pulse) * 0.15 + 1;
+    const r = n.r * (isHov ? 1.2 : (n === searchNode) ? 1.4 : pulse);
+
+    // Outer glow — soma luminescence
+    const glowR = r * ((n === searchNode) ? 3.5 : isHov ? 3 : isSel ? 2.5 : 1.8);
+    const glow = ctx.createRadialGradient(n.x, n.y, r*0.5, n.x, n.y, glowR);
+    glow.addColorStop(0, color + (isHov ? '30' : '15'));
+    glow.addColorStop(1, color + '00');
+    ctx.beginPath(); ctx.arc(n.x, n.y, glowR, 0, Math.PI*2);
+    ctx.fillStyle = glow; ctx.fill();
+
+    // Dendrite stubs — small lines radiating out
+    if (!n.external) {
+      const connCount = (graphData.edges||[]).filter(e => e.from===n.id || e.to===n.id).length;
+      const dendrites = Math.min(connCount, 6);
+      for (let d = 0; d < dendrites; d++) {
+        const da = (Math.PI*2*d)/dendrites + n.pulse;
+        const dLen = r * 1.6 + Math.sin(t*0.5 + d)*3;
+        ctx.beginPath();
+        ctx.moveTo(n.x + Math.cos(da)*r*0.9, n.y + Math.sin(da)*r*0.9);
+        ctx.lineTo(n.x + Math.cos(da)*dLen, n.y + Math.sin(da)*dLen);
+        ctx.strokeStyle = color + '30';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // Cell body
+    if (n.external) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+      ctx.fillStyle = color+'20';
+      ctx.fill();
+      ctx.setLineDash([3,3]);
+      ctx.strokeStyle = isHov ? '#fff' : color+'60';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+      const grad = ctx.createRadialGradient(n.x-r*0.3, n.y-r*0.3, 0, n.x, n.y, r);
+      grad.addColorStop(0, color+'ee');
+      grad.addColorStop(0.7, color+'aa');
+      grad.addColorStop(1, color+'40');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      if (isSel) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    // Nucleus text
+    if (n.r > 12 && !n.external) {
+      ctx.font = 'bold ' + Math.max(8, r*0.45) + 'px -apple-system, sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.classes, n.x, n.y);
+    }
+    if (n.external) {
+      ctx.font = '8px -apple-system, sans-serif';
+      ctx.fillStyle = '#888';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('EXT', n.x, n.y);
+    }
+
+    // Name label
+    ctx.font = (isHov||isSel ? 'bold 11px' : '10px') + ' -apple-system, sans-serif';
+    ctx.fillStyle = isHov||isSel ? '#fff' : '#999';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(n.name, n.x, n.y + r + 4);
+
+    // Info tooltip on hover
+    if (isHov && n.stereotypes) {
+      const entries = Object.entries(n.stereotypes).sort((a,b) => b[1]-a[1]).slice(0,3);
+      const txt = entries.map(([s,c]) => `${c} ${s}`).join('  ');
+      ctx.font = '10px -apple-system, sans-serif';
+      const tw = ctx.measureText(txt).width + 16;
+      ctx.fillStyle = 'rgba(10,10,15,.9)';
+      ctx.strokeStyle = color+'60';
+      ctx.lineWidth = 1;
+      roundRect(ctx, n.x-tw/2, n.y+r+18, tw, 20, 6);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ddd';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, n.x, n.y+r+28);
+    }
+    if (nodeDimmed) { ctx.globalAlpha = 1; }
+  });
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function screenToWorld(mx, my) {
+  const canvas = document.getElementById('graphCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  const sx = mx - rect.left, sy = my - rect.top;
+  return { x: (sx - W/2 - camX)/camZoom + W/2, y: (sy - H/2 - camY)/camZoom + H/2 };
+}
+
+function hitTest(mx, my) {
+  const p = screenToWorld(mx, my);
+  for (let i = gNodes.length-1; i >= 0; i--) {
+    const n = gNodes[i];
+    const dx = p.x-n.x, dy = p.y-n.y;
+    if (dx*dx+dy*dy < (n.r+4)*(n.r+4)) return n;
+  }
+  return null;
+}
+
+function onGDown(e) { const n = hitTest(e.clientX, e.clientY); if (n) { dragNode = n; } isDragging = true; lastMx = e.clientX; lastMy = e.clientY; }
+function onGMove(e) {
+  if (dragNode) { const p = screenToWorld(e.clientX, e.clientY); dragNode.x = p.x; dragNode.y = p.y; dragNode.vx=0; dragNode.vy=0; rerender(); }
+  else if (isDragging) { camX += e.clientX-lastMx; camY += e.clientY-lastMy; lastMx=e.clientX; lastMy=e.clientY; rerender(); }
+  else { const prev = hoveredNode; hoveredNode = hitTest(e.clientX, e.clientY); if (prev !== hoveredNode) { document.getElementById('graphCanvas').style.cursor = hoveredNode ? 'pointer' : 'grab'; rerender(); } }
+}
+function onGUp() { dragNode = null; isDragging = false; }
+function onGWheel(e) { e.preventDefault(); const z = e.deltaY > 0 ? 0.9 : 1.1; camZoom = Math.max(0.3, Math.min(4, camZoom*z)); rerender(); }
+function onGClick(e) { const n = hitTest(e.clientX, e.clientY); if (n) { selectedNode = n; showNodeDetail(n); } else { selectedNode = null; closeDetail(); } rerender(); }
+
+function rerender() {
+  const canvas = document.getElementById('graphCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  render(ctx, dpr, canvas.parentElement.clientWidth, canvas.parentElement.clientHeight);
+}
+
+function onGraphSearch(query) {
+  const dd = document.getElementById('graphSearchDropdown');
+  if (!query || !gNodes.length) { dd.style.display='none'; searchNode=null; searchNeighbors.clear(); rerender(); return; }
+  const q = query.toLowerCase();
+  const matches = gNodes.filter(n => n.name.toLowerCase().includes(q) || (n.id && n.id.toLowerCase().includes(q))).slice(0,10);
+  if (!matches.length) { dd.style.display='none'; return; }
+  dd.style.display='block';
+  dd.innerHTML = matches.map(n => {
+    const color = PLATFORM_COLORS[n.platform]||'#6366f1';
+    return `<div onmousedown="selectGraphSearch('${n.id}')" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='transparent'">
+      <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>
+      <span style="color:var(--text)">${n.name}</span>
+      <span style="color:var(--muted);font-size:11px;margin-left:auto">${n.platform||'unknown'} &bull; ${n.classes||0} classes</span>
+    </div>`;
+  }).join('');
+}
+
+function selectGraphSearch(nodeId) {
+  document.getElementById('graphSearchDropdown').style.display='none';
+  const n = gNodeMap[nodeId];
+  if (!n) return;
+  searchNode = n;
+  document.getElementById('graphSearch').value = n.name;
+  searchNeighbors.clear();
+  (graphData.edges||[]).forEach(e => {
+    if (e.from === nodeId) searchNeighbors.add(e.to);
+    if (e.to === nodeId) searchNeighbors.add(e.from);
+  });
+  // Pan camera to center on the node
+  const canvas = document.getElementById('graphCanvas');
+  const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
+  camX = -(n.x - W/2) * camZoom;
+  camY = -(n.y - H/2) * camZoom;
+  selectedNode = n;
+  showNodeDetail(n);
+  rerender();
+}
+
+function clearGraphSearch() {
+  document.getElementById('graphSearch').value = '';
+  document.getElementById('graphSearchDropdown').style.display = 'none';
+  searchNode = null;
+  searchNeighbors.clear();
+  rerender();
+}
+
+async function showNodeDetail(n) {
+  const panel = document.getElementById('nodeDetail');
+  panel.style.display = 'block';
+  document.getElementById('detailTitle').textContent = n.name;
+
+  const color = PLATFORM_COLORS[n.platform] || '#6366f1';
+  document.getElementById('detailMeta').innerHTML = `
+    <span style="background:${color}22;color:${color};padding:4px 10px;border-radius:4px;font-size:12px;font-weight:600">${n.platform}</span>
+    <span style="color:var(--muted);font-size:13px">${n.classes} classes &bull; ${n.endpoints} endpoints</span>
+  ` + Object.entries(n.stereotypes||{}).sort((a,b)=>b[1]-a[1]).map(([s,c]) =>
+    `<span style="background:var(--border);padding:3px 8px;border-radius:4px;font-size:11px">${c} ${s}</span>`
+  ).join('');
+
+  // Connections
+  const inbound = (graphData.edges||[]).filter(e => e.to === n.id);
+  const outbound = (graphData.edges||[]).filter(e => e.from === n.id);
+
+  let connHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">';
+  connHtml += '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px"><h4 style="font-size:12px;color:var(--green);margin-bottom:8px">INBOUND (' + inbound.length + ')</h4>';
+  inbound.forEach(e => { const name = (gNodeMap[e.from]||{}).name||e.from; connHtml += `<div style="font-size:12px;margin-bottom:4px"><span style="color:${EDGE_COLORS[e.type]||'#6366f1'}">${e.type.replace(/_/g,' ')}</span> from <b>${name}</b></div>`; });
+  if (!inbound.length) connHtml += '<div style="font-size:12px;color:var(--muted)">No inbound deps</div>';
+  connHtml += '</div>';
+
+  connHtml += '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px"><h4 style="font-size:12px;color:var(--red);margin-bottom:8px">OUTBOUND (' + outbound.length + ')</h4>';
+  outbound.forEach(e => { const name = (gNodeMap[e.to]||{}).name||e.to; connHtml += `<div style="font-size:12px;margin-bottom:4px"><span style="color:${EDGE_COLORS[e.type]||'#6366f1'}">${e.type.replace(/_/g,' ')}</span> to <b>${name}</b></div>`; });
+  if (!outbound.length) connHtml += '<div style="font-size:12px;color:var(--muted)">No outbound deps</div>';
+  connHtml += '</div></div>';
+
+  // Fetch detail drill-down
+  try {
+    const r = await fetch('/api/graph?detail=' + encodeURIComponent(n.id));
+    const d = await r.json();
+    const detailNode = d.nodes.find(x => x.id === n.id);
+    if (detailNode && detailNode.detail) {
+      connHtml += '<h4 style="font-size:13px;color:var(--accent);margin-bottom:12px">Internal Components</h4>';
+      connHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">';
+      const order = ['rest_controller','controller','service','component','repository','configuration'];
+      order.forEach(stereo => {
+        const items = detailNode.detail[stereo];
+        if (!items) return;
+        const label = stereo.replace(/_/g, ' ');
+        connHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+          <h5 style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">${label} (${items.length})</h5>`;
+        items.slice(0, 15).forEach(u => {
+          const eps = (u.endpoints||[]).map(e => `<span style="color:var(--green);font-size:10px">${e}</span>`).join(' ');
+          connHtml += `<div style="font-size:12px;margin-bottom:4px;padding:4px 0;border-bottom:1px solid var(--border)">${u.name}${eps ? '<br>'+eps : ''}</div>`;
+        });
+        if (items.length > 15) connHtml += `<div style="font-size:11px;color:var(--muted)">+${items.length-15} more</div>`;
+        connHtml += '</div>';
+      });
+      connHtml += '</div>';
+    }
+  } catch(e) {}
+
+  document.getElementById('detailGroups').innerHTML = connHtml;
+}
+
+function closeDetail() {
+  document.getElementById('nodeDetail').style.display = 'none';
+  selectedNode = null;
+  rerender();
+}
+
+// ── MCP Monitor ──────────────────────────────────────────────────
+
+let mcpEventsData = [];
+
+async function loadMCPEvents() {
+  try {
+    const r = await fetch('/api/mcp/events');
+    const d = await r.json();
+    mcpEventsData = d.events || [];
+    renderMCPEvents();
+  } catch(e) {
+    console.log('MCP events load error:', e);
+  }
+}
+
+function startMCPStream() {
+  if (mcpStream) mcpStream.close();
+  mcpStream = new EventSource('/api/mcp/events?mode=stream');
+  mcpStream.addEventListener('mcp_event', e => {
+    try {
+      const ev = JSON.parse(e.data);
+      mcpEventsData.push(ev);
+      if (mcpEventsData.length > 100) mcpEventsData = mcpEventsData.slice(-100);
+      renderMCPEvents();
+    } catch(err) {}
+  });
+}
+
+function renderMCPEvents() {
+  const eventsEl = document.getElementById('mcpEvents');
+  const statsEl = document.getElementById('mcpStats');
+
+  if (mcpEventsData.length === 0) {
+    eventsEl.innerHTML = '';
+    statsEl.innerHTML = `
+      <div class="mcp-stat-card"><h4>Total Calls</h4><div class="big">0</div></div>
+      <div class="mcp-stat-card"><h4>Errors</h4><div class="big" style="color:var(--green)">0</div></div>
+    `;
+    return;
+  }
+
+  const toolCounts = {};
+  let totalErrors = 0;
+  let totalDuration = 0;
+  let durationCount = 0;
+
+  mcpEventsData.forEach(ev => {
+    toolCounts[ev.tool] = (toolCounts[ev.tool] || 0) + 1;
+    if (ev.error) totalErrors++;
+    if (ev.duration) {
+      const ms = parseDuration(ev.duration);
+      if (ms > 0) { totalDuration += ms; durationCount++; }
+    }
+  });
+
+  const avgDuration = durationCount > 0 ? Math.round(totalDuration / durationCount) : 0;
+  const topTools = Object.entries(toolCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxCount = topTools.length > 0 ? topTools[0][1] : 1;
+
+  statsEl.innerHTML = `
+    <div class="mcp-stat-card"><h4>Total Calls</h4><div class="big">${mcpEventsData.length}</div></div>
+    <div class="mcp-stat-card"><h4>Errors</h4><div class="big" style="color:${totalErrors > 0 ? 'var(--red)' : 'var(--green)'}">${totalErrors}</div></div>
+    <div class="mcp-stat-card"><h4>Avg Duration</h4><div class="big">${avgDuration}ms</div></div>
+    <div class="mcp-stat-card"><h4>Top Tools</h4>
+      ${topTools.map(([name, count]) => `
+        <div class="mcp-bar">
+          <span class="bar-label">${name.replace('nexus_', '')}</span>
+          <div class="bar-bg"><div class="bar-fill" style="width:${(count/maxCount*100)}%"></div></div>
+          <span class="bar-count">${count}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  const recent = mcpEventsData.slice(-30).reverse();
+  eventsEl.innerHTML = recent.map(ev => {
+    const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : '';
+    const errFlag = ev.error ? ' <span class="error-flag">ERR</span>' : '';
+    const dur = ev.duration ? ` <span class="duration">${ev.duration}</span>` : '';
+    return `<div class="mcp-event"><span class="timestamp">${ts}</span> <span class="tool-name">${ev.tool}</span>${dur}${errFlag}</div>`;
+  }).join('');
+}
+
+function parseDuration(s) {
+  if (!s) return 0;
+  let ms = 0;
+  const secMatch = s.match(/([\d.]+)s/);
+  const msMatch = s.match(/([\d.]+)ms/);
+  if (msMatch) ms = parseFloat(msMatch[1]);
+  else if (secMatch) ms = parseFloat(secMatch[1]) * 1000;
+  return ms;
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+
+document.getElementById('ticket').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runPipeline();
+});
+
+window.addEventListener('resize', () => { if (graphData) drawGraph(); });
+
+loadStatus();
+initPhases();
+</script>
+</body>
+</html>

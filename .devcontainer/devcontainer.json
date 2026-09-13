@@ -1,0 +1,22 @@
+{
+  "name": "Nexus",
+  "image": "mcr.microsoft.com/devcontainers/go:1-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/sshd:1": { "version": "latest" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ],
+      "settings": {
+        "go.toolsManagement.autoUpdate": true
+      }
+    }
+  },
+  "postCreateCommand": "go version && go mod download && make build",
+  "remoteEnv": {
+    "CGO_ENABLED": "1"
+  }
+}
